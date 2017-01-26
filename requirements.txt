@@ -1,0 +1,5 @@
+requests
+requests_hawk
+flake8
+PyFxA
+https://github.com/tarekziade/ailoads/archive/master.zip
