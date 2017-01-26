@@ -1,0 +1,12 @@
+_Store
+.cache
+.tox
+.coverage
+records.json
+*.pyc
+__pycache__/
+*.egg-info/
+*.egg
+mail/
+venv/
+*.sw[op]
