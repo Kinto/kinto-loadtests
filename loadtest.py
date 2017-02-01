@@ -1,52 +1,61 @@
-import json
 import os
-import uuid
 
-from ailoads.fmwk import scenario, requests
-
-URL_SERVER = os.getenv('URL_KINTO_SERVER',
-                       "https://kinto.stage.mozaws.net/v1")
-TIMEOUT = 30
-
-_CONNECTIONS = {}
+from molotov import setup, scenario
 
 
-def get_connection(id=None):
-    if id is None or id not in _CONNECTIONS:
-        id = uuid.uuid4().hex
-        conn = KintoConnection(id)
-        _CONNECTIONS[id] = conn
+# Read configuration from env
+SERVER_URL = os.getenv(
+    'URL_KINTO_SERVER',
+    "https://webextensions-settings.stage.mozaws.net:443").rstrip('/')
 
-    return _CONNECTIONS[id]
+FXA_BEARER_TOKEN = os.getenv("FXA_BEARER_TOKEN")
 
+if not FXA_BEARER_TOKEN:
+    raise ValueError("Please define FXA_BEARER_TOKEN env variable.")
 
-class KintoConnection(object):
+CONNECTIONS = {}
 
-    def __init__(self, id):
-        self.id = id
-        self.timeout = TIMEOUT
+COLLECTIONS = "/v1/buckets/default/collections"
 
-    def post(self, endpoint, data):
-        return requests.post(
-            URL_SERVER + endpoint,
-            data=json.dumps(data),
-            timeout=self.timeout)
-
-    def get(self, endpoint):
-        return requests.get(
-            URL_SERVER + endpoint,
-            timeout=self.timeout)
-
-    def delete(self, endpoint):
-        return requests.delete(
-            URL_SERVER + endpoint,
-            timeout=self.timeout)
+ADMIN_URL = "/v1/admin/"
+HEARTBEAT_URL = "/v1/__heartbeat__"
+STATUS_URL = "/v1/"
+VERSION_URL = "/v1/__version__"
 
 
-@scenario(1)
-def demo_test():
-    conn = get_connection('demo_connection')
-    resp = conn.get('/')
-    # body = resp.json()
-    # assert "data" in body, "data not found in body"
-    resp.raise_for_status()
+@setup()
+async def init_test(args):
+    headers = {"Authorization": "Bearer %s" % FXA_BEARER_TOKEN}
+    return {'headers': headers}
+
+
+@scenario(100)
+async def access_bucket_collection_records(session):
+    """Access the list of records."""
+    async with session.get(SERVER_URL + STATUS_URL) as r:
+        body = await r.json()
+        assert 'user' in body
+
+    async with session.get(SERVER_URL + COLLECTIONS) as r:
+        body = await r.json()
+        assert "data" in body, "data not found in body"
+
+    requests = []
+    for collection in body['data']:
+        requests.append({
+            "path": COLLECTIONS + "/" + collection['id']
+        })
+        requests.append({
+            "path": COLLECTIONS + "/" + collection['id'] + "/records"
+        })
+
+    batch_data = {
+        "defaults": {
+            "method": "GET"
+        },
+        "requests": requests
+    }
+
+    async with session.post(SERVER_URL + '/v1/batch/', json=batch_data) as r:
+        body = await r.json()
+        print(body)

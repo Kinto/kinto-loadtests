@@ -11,28 +11,28 @@ INSTALL = $(VENV_PIP) install
 URL_KINTO_SERVER = https://kinto.stage.mozaws.net
 
 .PHONY: all check-os install-elcapitan install build
-.PHONY: configure 
+.PHONY: configure
 .PHONY: docker-build docker-run docker-export
 .PHONY: test test-heavy refresh clean
 
-all: build setup_random configure 
+all: build setup_random configure
 
 
-# hack for OpenSSL problems on OS X El Captain: 
+# hack for OpenSSL problems on OS X El Captain:
 # https://github.com/phusion/passenger/issues/1630
 check-os:
 ifeq ($(OS),Darwin)
   ifneq ($(USER),root)
     $(info "clang now requires sudo, use: sudo make <target>.")
     $(info "Aborting!") && exit 1
-  endif  
+  endif
   BREW_PATH_OPENSSL=$(shell brew --prefix openssl)
 endif
 
-install-elcapitan: check-os 
+install-elcapitan: check-os
 	env LDFLAGS="-L$(BREW_PATH_OPENSSL)/lib" \
 	    CFLAGS="-I$(BREW_PATH_OPENSSL)/include" \
-	    $(INSTALL) cryptography 
+	    $(INSTALL) cryptography
 
 $(VENV_PYTHON):
 	virtualenv $(VTENV_OPTS) venv
@@ -42,9 +42,9 @@ install:
 
 build: $(VENV_PYTHON) install-elcapitan install
 
-clean-env: 
+clean-env:
 	@rm -f loadtest.env
-	
+
 
 configure: build
 	@bash loads.tpl
@@ -60,7 +60,7 @@ test-heavy: build
 
 
 docker-build:
-	docker build -t kinto/loadtest .
+	docker build -t kinto/kinto-loadtests .
 
 docker-run:
 	bash -c "source loadtest.env; docker run -e TEST_DURATION=30 -e CONNECTIONS=4 kinto/loadtest"
@@ -71,4 +71,3 @@ docker-export:
 
 clean: refresh
 	@rm -fr venv/ __pycache__/ loadtest.env
-

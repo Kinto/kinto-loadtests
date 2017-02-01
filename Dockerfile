@@ -5,7 +5,7 @@ RUN \
     apt-get update; \
     apt-get install -y python3-pip python3-venv git build-essential make; \
     apt-get install -y python3-dev libssl-dev libffi-dev; \
-    git clone https://github.com/chartjes/kinto-loadtests /home/kinto; \
+    git clone https://github.com/Kinto/kinto-loadtests /home/kinto; \
     cd /home/kinto; \
     pip3 install virtualenv; \
     make build -e PYTHON=python3.5; \
