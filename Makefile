@@ -8,7 +8,7 @@ VENV_PIP = $(BIN)/pip3
 VENV_PYTHON = $(BIN)/python
 INSTALL = $(VENV_PIP) install
 
-URL_KINTO_SERVER = https://kinto.stage.mozaws.net
+URL_KINTO_SERVER = https://webextensions-settings.stage.mozaws.net
 
 .PHONY: all check-os install-elcapitan install build
 .PHONY: configure
@@ -50,13 +50,13 @@ configure: build
 	@bash loads.tpl
 
 
-#bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/ailoads -v -d 30"
+#bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov -v -d 30"
 test: build
-	bash -c "URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/ailoads -v -d 30"
+	bash -c "URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov  -d 30 loadtest.py"
 	$(BIN)/flake8 loadtest.py
 
 test-heavy: build
-	bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/ailoads -v -d 300 -u 10"
+	bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov -v -d 300 -u 10"
 
 
 docker-build:
