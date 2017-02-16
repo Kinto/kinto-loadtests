@@ -3,7 +3,7 @@ source loadtest.env && \
 echo "Building loads.json" && \
 cat > loads.json <<EOF
 {
-  "name": "Shavar Server Testing",
+  "name": "Webextensions Load Testing",
   "plans": [
 
     {
