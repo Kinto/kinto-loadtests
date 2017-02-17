@@ -1,32 +1,61 @@
 import os
 
-from molotov import setup, scenario
+from fxa.__main__ import DEFAULT_CLIENT_ID
+from fxa.core import Client
+from fxa.tests.utils import TestEmailAccount
+from fxa.tools.bearer import get_bearer_token
+from molotov import global_setup, global_teardown, setup, scenario
 
 
 # Read configuration from env
 SERVER_URL = os.getenv(
-    'URL_KINTO_SERVER',
+    'KINTO_WE_SERVER',
     "https://webextensions-settings.stage.mozaws.net").rstrip('/')
-
-#FXA_BEARER_TOKEN = os.getenv("FXA_BEARER_TOKEN")
-FXA_BEARER_TOKEN = "b188fdd9f7a3266fbbe6e28754f7f1fe7deb3b0ca1b61fae7bfc7c55c2e279cd"
-if not FXA_BEARER_TOKEN:
-    raise ValueError("Please define FXA_BEARER_TOKEN env variable.")
-
-CONNECTIONS = {}
 
 COLLECTIONS = "/v1/buckets/default/collections"
 
 STATUS_URL = "/v1/"
 VERSION_URL = "/v1/__version__"
 
-'''
-http -v GET "${SERVER_URL}/buckets/default/collections" Authorization:"Bearer ${OAUTH_BEARER_TOKEN}"
-'''
+_FXA = {}
+
+@global_setup()
+def create_account_and_token(args):
+    acct = TestEmailAccount()
+    client = Client("https://api.accounts.firefox.com")
+    session = client.create_account(
+        acct.email,
+        'MySecretPassword'
+    )
+    m = acct.wait_for_email(lambda m: "x-verify-code" in m["headers"])
+
+    if m is None:
+        raise RuntimeError("verification email did not arrive")
+
+    session.verify_email_code(m["headers"]["x-verify-code"])
+    _FXA['token']= get_bearer_token(
+        acct.email,
+        'MySecretPassword',
+        account_server_url="https://api.accounts.firefox.com/v1",
+        oauth_server_url="https://oauth.accounts.firefox.com/v1",
+        scopes=['sync:addon_storage'],
+        client_id=DEFAULT_CLIENT_ID
+    )
+    _FXA['acct'] = acct
+    _FXA['client'] = client
+
+
+@global_teardown()
+def cleanup_account():
+    acct = _FXA['acct']
+    client = _FXA['client']
+    acct.clear()
+    client.destroy_account(acct.email, "MySecretPassword")
+
 
 @setup()
-async def init_test(args):
-    headers = {"Authorization": "Bearer %s" % FXA_BEARER_TOKEN}
+async def init_test(worker_id, args):
+    headers = {"Authorization": "Bearer %s" % _FXA['token']}
     return {'headers': headers}
 
 
@@ -50,13 +79,4 @@ async def access_bucket_collection_records(session):
             "path": COLLECTIONS + "/" + collection['id'] + "/records"
         })
 
-    batch_data = {
-        "defaults": {
-            "method": "GET"
-        },
-        "requests": requests
-    }
 
-    async with session.post(SERVER_URL + '/v1/batch/', json=batch_data) as r:
-        body = await r.json()
-        print(body)
