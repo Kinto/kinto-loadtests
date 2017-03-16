@@ -1,0 +1,28 @@
+{
+    "molotov": {
+        "requirements": "requirements.txt",
+        "tests": {
+            "massive": {
+                "duration": 300,
+                "processes": 10,
+                "workers": 100,
+                "scenario": "loadtest.py"
+            },
+            "heavy": {
+                "duration": 300,
+                "processes": 1,
+                "workers": 10,
+                "scenario": "loadtest.py"
+            },
+            "test": {
+                "duration": 30,
+                "workers": 1,
+                "scenario": "loadtest.py"
+            },
+            "smoke": {
+                "max_runs": 1,
+                "scenario": "loadtest.py"
+            }
+        }
+    }
+}
