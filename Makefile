@@ -3,19 +3,22 @@ HERE = $(shell pwd)
 PYTHON = python3
 VTENV_OPTS = --python $(PYTHON)
 
+# load env vars
+include molotov.env
+export $(shell sed 's/=.*//' molotov.env)
+
 BIN = $(HERE)/venv/bin
 VENV_PIP = $(BIN)/pip3
 VENV_PYTHON = $(BIN)/python
 INSTALL = $(VENV_PIP) install
 
-URL_KINTO_SERVER = https://webextensions-settings.stage.mozaws.net
-
 .PHONY: all check-os install-elcapitan install build
-.PHONY: configure
 .PHONY: docker-build docker-run docker-export
-.PHONY: test test-heavy refresh clean
+.PHONY: test test-heavy 
+.PHONY: loads-config 
+.PHONY: clean clean-env
 
-all: build setup_random configure
+all: build configure
 
 
 # hack for OpenSSL problems on OS X El Captain:
@@ -42,32 +45,34 @@ install:
 
 build: $(VENV_PYTHON) install-elcapitan install
 
-clean-env:
-	@rm -f loadtest.env
 
-
-configure: build
-	@bash loads.tpl
-
-
-#bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov -v -d 30"
 test: build
-	bash -c "URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov  -d 30 loadtest.py"
-	$(BIN)/flake8 loadtest.py
+	bash -c "URL_SERVER=$(URL_SERVER) $(BIN)/molotov -d $(TEST_DURATION) -c loadtest.py"
 
 test-heavy: build
-	bash -c "source loadtest.env && URL_KINTO_SERVER=$(URL_KINTO_SERVER) $(BIN)/molotov -v -d 300 -u 10"
+	bash -c "URL_SERVER=$(URL_SERVER) $(BIN)/molotov -p $(TEST_PROCESSES_HEAVY) -d $(TEST_DURATION_HEAVY) -w $(TEST_CONNECTIONS_HEAVY) -cx loadtest.py"
 
 
 docker-build:
-	docker build -t kinto/kinto-loadtests .
+	docker build -t firefoxtesteng/$(PROJECT)-loadtests .
 
 docker-run:
-	bash -c "source loadtest.env; docker run -e TEST_DURATION=30 -e CONNECTIONS=4 kinto/loadtest"
+	bash -c "docker run -e URL_SERVER=$(URL_SERVER) -e TEST_PROCESSES=$(TEST_PROCESSES) -e TEST_DURATION=$(TEST_DURATION) -e TEST_CONNECTIONS=$(TEST_CONNECTIONS) -e VERBOSE=$(VERBOSE) firefoxtesteng/$(PROJECT)-loadtests"
 
 docker-export:
-	docker save "kinto/loadtest:latest" | bzip2> kinto-latest.tar.bz2
+	docker save "$(PROJECT)/loadtest:latest" | bzip2> "$(PROJECT)-latest.tar.bz2"
 
 
-clean: refresh
-	@rm -fr venv/ __pycache__/ loadtest.env
+loads-config:
+	@bash loads-broker.tpl
+
+
+clean: 
+	@rm -fr venv/ __pycache__/ 
+
+clean-env:
+	@cp molotov.env molotov.env.OLD
+	@rm -f molotov.env
+	@touch molotov.env
+
+
