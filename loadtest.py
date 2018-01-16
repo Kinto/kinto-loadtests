@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 
@@ -74,15 +75,17 @@ async def access_bucket_collection_records(session):
         body = await r.json()
         assert "data" in body, "data not found in body"
 
-    requests = []
-    for collection in body['data']:
-        requests.append({
-            "path": COLLECTIONS + "/" + collection['id']
-        })
-        requests.append({
-            "path": COLLECTIONS + "/" + collection['id'] + "/records"
-        })
+    async def fetch_url(url):
+        async with session.get(url) as r:
+            body = await r.json()
+        return body
 
+    tasks = []
+    for collection in body['data']:
+        tasks.append(asyncio.ensure_future(fetch_url(SERVER_URL + COLLECTIONS + "/" + collection['id'])))
+        tasks.append(asyncio.ensure_future(fetch_url(SERVER_URL + COLLECTIONS + "/" + collection['id'] + "/records")))
+
+    responses = await asyncio.gather(*tasks)
 
 @scenario(25)
 async def create_records(session):
