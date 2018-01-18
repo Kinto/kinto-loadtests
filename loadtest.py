@@ -21,6 +21,14 @@ VERSION_URL = "/v1/__version__"
 
 _FXA = {}
 
+async def json_or_error(r):
+    if r.content_type != 'application/json':
+        text = await r.text()
+        raise ValueError("response was not JSON: {}".format(text))
+
+    return await r.json()
+
+
 @global_setup()
 def create_account_and_token(args):
     acct = TestEmailAccount()
@@ -72,8 +80,13 @@ async def access_bucket_collection_records(session):
         assert 'user' in body
 
     async with session.get(SERVER_URL + COLLECTIONS) as r:
-        body = await r.json()
-        assert "data" in body, "data not found in body"
+        body = await json_or_error(r)
+        if "data" not in body:
+            if "error" in body:
+                raise ValueError("request failed: {} {} ({}, {}, {})".format(
+                    body.get('errno'), body.get('code'),
+                    body.get('error'), body.get('message'), body.get('info')))
+            raise ValueError("data not found in body: {}".format(body.keys()))
 
     requests = []
     for collection in body['data']:
@@ -90,7 +103,7 @@ async def create_records(session):
     payload = '{"data": {"payload": {"encrypted": "%s"}}}' % str(uuid.uuid4())
     # headers = {"Authorization": "Bearer %s" % _FXA['token'], "Content-type": "application/json;charset=utf8"}
     async with session.post(SERVER_URL + COLLECTIONS + '/qa_collection/records', data=payload) as resp:
-        assert resp.status == 201
+        assert resp.status == 201, "creating failed: {}".format(resp.status)
 
 
 @scenario(1)
