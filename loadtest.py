@@ -13,7 +13,8 @@ SERVER_URL = os.getenv(
     'KINTO_WE_SERVER',
     "https://webextensions-settings.stage.mozaws.net").rstrip('/')
 
-COLLECTIONS = "/v1/buckets/default/collections"
+BUCKET = "/v1/buckets/default"
+COLLECTIONS = BUCKET + "/collections"
 
 STATUS_URL = "/v1/"
 VERSION_URL = "/v1/__version__"
@@ -90,3 +91,11 @@ async def create_records(session):
     # headers = {"Authorization": "Bearer %s" % _FXA['token'], "Content-type": "application/json;charset=utf8"}
     async with session.post(SERVER_URL + COLLECTIONS + '/qa_collection/records', data=payload) as resp:
         assert resp.status == 201
+
+
+@scenario(1)
+async def wipe_server(session):
+    async with session.delete(SERVER_URL + BUCKET) as resp:
+        if resp.status != 200:
+            text = await resp.text()
+            raise ValueError("deleting failed: {} {}".format(resp.status, text))
